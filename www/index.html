@@ -259,7 +259,22 @@ const vLine = (cls, txt) => `<div class="verdict ${cls} rowin">${esc(txt)}</div>
 function renderVpn(t){
   const ip  = (t.match(/^\s*exit IP\s+(.+)$/m)||[])[1] || '';
   const org = (t.match(/^\s*belongs to\s+(.+)$/m)||[])[1] || '';
-  const ok  = /^\s*OK /m.test(t), bad = /^\s*!! /m.test(t);
+  const split = /SPLIT ROUTING/.test(t);
+  const ok  = /^\s*OK /m.test(t), bad = !split && /^\s*!! /m.test(t);
+
+  // Split routing has no single answer, so show both paths rather than a verdict.
+  if (split){
+    const paths = [...t.matchAll(/^\s+(\S+?)\s*->\s*(\S+)\s+(.*)$/gm)];
+    setCard('vpn','bad', `
+      <div class="big rowin" style="font-size:1.05rem">Split routing</div>
+      <div style="margin-top:.45rem">${paths.map((m,i)=>
+        `<div class="dnsline rowin" style="animation-delay:${i*60}ms">
+           <span class="ip">${esc(m[1])}</span>
+           <span class="as">${esc(m[2])} · ${esc(m[3])}</span></div>`).join('')}</div>
+      ${vLine('bad','Only some traffic is tunnelled — no single verdict fits.')}`);
+    return;
+  }
+
   setCard('vpn', ok?'ok':bad?'bad':'', `
     <div class="big rowin">${esc(ip||'—')}</div>
     <div class="meta rowin"><span class="k">belongs to</span> ${esc(org||'unknown')}</div>

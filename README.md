@@ -15,13 +15,13 @@ docker run -d -p 8080:8080 -e VPN_PROVIDER='Mullvad|31173 Services' deepcrash/tu
 Or build it yourself:
 
 ```sh
-docker build -t tunnelbunny:1.1 .
+docker build -t tunnelbunny:1.2 .
 
 # web UI on :8080
-docker run -d -p 8080:8080 -e VPN_PROVIDER='Mullvad|31173 Services' tunnelbunny:1.1
+docker run -d -p 8080:8080 -e VPN_PROVIDER='Mullvad|31173 Services' tunnelbunny:1.2
 
 # or one-shot in the terminal
-docker run --rm -e VPN_PROVIDER='Mullvad|31173 Services' tunnelbunny:1.1 vpn
+docker run --rm -e VPN_PROVIDER='Mullvad|31173 Services' tunnelbunny:1.2 vpn
 ```
 
 `check [vpn|dns|speed|all]` — with no argument the container starts the web UI.
@@ -30,7 +30,7 @@ Also inside: `curl`, `dig`, `mtr`, `ping` and Ookla's `speedtest`, so it doubles
 shell to poke around from:
 
 ```sh
-docker run --rm -it --entrypoint sh tunnelbunny:1.1
+docker run --rm -it --entrypoint sh tunnelbunny:1.2
 ```
 
 ### Measure from a different network than the host's
@@ -39,10 +39,10 @@ This is the point of it.
 
 ```sh
 # put it directly on a VLAN
-docker run --rm --network br0.9 tunnelbunny:1.1
+docker run --rm --network br0.9 tunnelbunny:1.2
 
 # or borrow an existing container's network namespace - measures exactly its view
-docker run --rm --network container:qbittorrent tunnelbunny:1.1
+docker run --rm --network container:qbittorrent tunnelbunny:1.2
 ```
 
 The second one is what you want when debugging: you measure from *precisely* the
@@ -72,6 +72,22 @@ company, and the registered name is rarely the brand.
 and a button appears: *Use "AS39351 31173 Services AB" as VPN provider*. That takes the
 string from the registry rather than from our list, so it can never go stale.
 
+### Split routing is detected, not guessed at
+
+The VPN check asks **two** echo services on different domains. If they disagree, only
+some destinations are tunnelled and no single verdict describes the network — so it
+reports both paths instead of a verdict.
+
+> 🐛 **This was found by testing on a second network, and it mattered.** The first
+> version asked `ipinfo.io` alone and reported a clean **OK** for a host that was not
+> in the tunnel at all. Cause: `ipinfo.io` was in that network's VPN domain list —
+> and leak-test sites are exactly the domains people route through their VPN.
+> Measured from one host, one moment: `ipinfo.io` answered from the VPN exit while
+> `icanhazip.com`, `ifconfig.co` and `api.ipify.org` all answered from the ISP.
+>
+> A false OK is the worst thing a leak test can produce. One endpoint cannot tell you
+> a network is protected — it can only tell you about the path to that endpoint.
+
 **With no provider set, no verdict is given.** The measurement is shown and nothing
 is claimed. You cannot tell right from wrong without knowing where the traffic is
 *supposed* to exit — and comparing against your own ISP instead only ever answers for
@@ -94,7 +110,7 @@ docker run -d --name tunnelbunny --network my-vpn-net --ip 10.9.0.12 --restart u
   -v /mnt/user/appdata/tunnelbunny:/config \
   --label net.unraid.docker.webui='http://[IP]:[PORT:8080]/' \
   --label net.unraid.docker.icon='https://raw.githubusercontent.com/selfhst/icons/main/png/speedtest-tracker.png' \
-  tunnelbunny:1.1
+  tunnelbunny:1.2
 ```
 
 Two things Unraid does that are not obvious:
@@ -140,6 +156,7 @@ That keeps `check` useful as a standalone CLI tool.
 | `curl -w '%{speed_download}'` without `\n` | values are glued into one number; `awk` summed nonsense and reported astronomical speeds |
 | Single-stream measurement | 666 Mbps with one stream vs 991 with eight, same link, same moment |
 | Measuring down against one host and up against another | looked like a directional asymmetry in the tunnel. It was two different **paths** |
+| Asking a single echo service | reported a clean OK for a network that was not tunnelled, because the test domain itself was VPN-routed. Two services on different domains now, and disagreement is reported as split routing |
 | `tr -d ' '` in the DNS loop | stripped the spaces out of the ASN name: `AS42675 OBEHosting AB` became `AS42675OBEHostingAB` |
 
 ## Security notes
@@ -167,7 +184,7 @@ By hand, without CI:
 
 ```sh
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t deepcrash/tunnelbunny:1.1 -t deepcrash/tunnelbunny:latest --push .
+  -t deepcrash/tunnelbunny:1.2 -t deepcrash/tunnelbunny:latest --push .
 ```
 
 `--push` is required — buildx cannot put a multi-arch image in the local image store.

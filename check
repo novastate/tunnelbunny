@@ -31,10 +31,35 @@ orgof() { printf '%s' "$1" | tr ',' '\n' | sed -n 's/.*"\(org\|asn_org\)" *: *"\
 
 check_vpn() {
     echo "== VPN =="
+    # TWO echo services on DIFFERENT domains, deliberately.
+    #
+    # Leak-test sites are exactly the domains people route through their VPN, so
+    # asking only one of them measures the path to THAT SITE - not the network's
+    # egress. Measured on a split-routed network: ipinfo.io answered from the VPN
+    # exit while icanhazip.com, ifconfig.co and api.ipify.org all answered from the
+    # ISP, same host, same moment. A single check reported a clean OK for a network
+    # that was not in the tunnel at all.
+    #
+    # Two answers that agree = that is the egress, and the verdict means something.
+    # Two that disagree = split routing, which no single verdict can describe.
     j=$($C https://ipinfo.io/json)
     ip=$(ipof "$j"); org=$(orgof "$j")
+    ip2=$($C https://icanhazip.com | tr -d '\r\n ')
+
     printf "  exit IP      %s\n" "${ip:-could not be fetched}"
     printf "  belongs to   %s\n" "${org:-unknown}"
+
+    if [ -n "$ip" ] && [ -n "$ip2" ] && [ "$ip" != "$ip2" ]; then
+        org2=$($C "https://ipinfo.io/$ip2/json" | tr ',' '\n' \
+               | sed -n 's/.*"org" *: *"\([^"]*\)".*/\1/p' | head -1)
+        echo "  !! SPLIT ROUTING - destinations take different paths."
+        printf "     ipinfo.io    -> %s  %s\n" "$ip"  "$org"
+        printf "     icanhazip.com-> %s  %s\n" "$ip2" "${org2:-unknown}"
+        echo "     Only some traffic is tunnelled. No single verdict describes this"
+        echo "     network - check the destinations you actually care about."
+        return
+    fi
+
     if [ -z "$PROVIDER" ]; then
         echo "  ?  No VPN provider set - no verdict given."
         echo "     Set it to the name above if that is your VPN provider."
