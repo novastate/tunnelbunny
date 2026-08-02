@@ -1,0 +1,33 @@
+#!/bin/sh
+# CGI: runs check and returns its output as plain text.
+# QUERY_STRING comes from outside - whitelist it, NEVER pass it to a shell.
+hdr() { printf 'Content-Type: text/plain; charset=utf-8\r\nCache-Control: no-store\r\n\r\n'; }
+prov_now() {
+    if [ -s /config/provider ]; then head -c 64 /config/provider | tr -d '\r\n'
+    else printf '%s' "${VPN_PROVIDER:-}"; fi
+}
+
+case "$QUERY_STRING" in
+    what=info)  hdr; prov_now; exit 0 ;;
+    what=setprov*)
+        # The value arrives base64-encoded from the page - no URL decoding in shell.
+        b=${QUERY_STRING#*&v=}
+        v=$(printf '%s' "$b" | base64 -d 2>/dev/null | tr -d '\r\n' | head -c 64)
+        # Whitelist. Deliberately NOT with `case`: a | inside the bracket expression
+        # is taken as the case alternation separator BEFORE the bracket is parsed,
+        # which silently disables the entire check - and | has to be allowed here,
+        # because the value is a grep -E alternation. grep has no such pitfall.
+        if ! printf '%s' "$v" | grep -q '^[A-Za-z0-9 ._|-]*$'; then
+            hdr; echo "invalid characters"; exit 0
+        fi
+        mkdir -p /config 2>/dev/null
+        printf '%s' "$v" > /config/provider 2>/dev/null || { hdr; echo "could not save"; exit 0; }
+        hdr; prov_now; exit 0 ;;
+    what=vpn)   arg=vpn   ;;
+    what=dns)   arg=dns   ;;
+    what=speed) arg=speed ;;
+    what=all|"") arg=all  ;;
+    *) hdr; echo "unknown option"; exit 0 ;;
+esac
+hdr
+exec /usr/local/bin/check "$arg" 2>&1

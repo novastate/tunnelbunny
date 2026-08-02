@@ -1,0 +1,7 @@
+#!/bin/sh
+# No arguments: start the web UI. This also keeps the container running, which
+# Unraid requires for it to be listed at all.
+# With arguments: run the check and exit - for one-shot use.
+[ "$#" -gt 0 ] && exec /usr/local/bin/check "$@"
+echo "Tunnel Bunny: web UI on http://0.0.0.0:${PORT:-8080}/"
+exec httpd -f -vv -p "${PORT:-8080}" -h /www

@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>tunnelbunny</Name>
+  <Repository>YOURNAME/tunnelbunny:latest</Repository>
+  <Registry/>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support/>
+  <Project/>
+  <Overview>Diagnostics container for VPN networks. Answers three questions from the network it sits on: is traffic in the tunnel, is DNS leaking, how fast is it. Click WebUI for the page, or Console and run: check (vpn|dns|speed|all). Also ships curl, dig, mtr, ping and Ookla speedtest. </Overview>
+  <Category>Tools:Utilities Network:Other</Category>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <TemplateURL/>
+  <Icon>https://raw.githubusercontent.com/selfhst/icons/main/png/speedtest-tracker.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled>1785000000</DateInstalled>
+  <DonateText/>
+  <DonateLink/>
+  <Config Name="WebUI" Target="8080" Default="8080" Mode="tcp" Description="Webbgranssnitt" Type="Port" Display="always" Required="false" Mask="false">8080</Config>
+  <Config Name="VPN provider" Target="VPN_PROVIDER" Default="" Mode="" Description="Regex matched against the ASN/org field. Normally set from the web UI, which ships a list of common providers. Several have more than one company name - Mullvad is 31173 Services, NordVPN is Tefincom or PacketHub." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Config" Target="/config" Default="/mnt/user/appdata/tunnelbunny" Mode="rw" Description="Sparar VPN provideren satt i webbgranssnittet." Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/tunnelbunny</Config>
+  <Requires/>
+</Container>

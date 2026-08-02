@@ -1,0 +1,121 @@
+#!/bin/sh
+# check - VPN, DNS leak and speed.   check [vpn|dns|speed|all]
+#
+# Requires only curl. No jq, no dig, no bash. Runs on busybox.
+#
+# VPN_PROVIDER is a REGEX matched against the ASN/org field (grep -iE).
+# Several providers have more than one registered company name, so alternations
+# are needed - a single brand name would report a false leak:
+#   OVPN       "Obehosting|OVPN"
+#   Mullvad    "31173 Services|Mullvad"      <- AS39351 is "31173 Services AB"
+#   NordVPN    "Tefincom|PacketHub|NordVPN"  <- both companies appear
+#   Proton     "Proton"
+#   Surfshark  "Surfshark"
+# Normally set from the web UI, which ships the list. Don't know yours? Run the
+# VPN check with nothing set and read the "belongs to" line.
+#
+# With no provider set the measurement is shown but NO verdict is given: you
+# cannot tell right from wrong without knowing where the traffic should exit.
+PROVIDER="${VPN_PROVIDER:-}"
+C="curl -s -m20"
+
+# A value written from the web UI wins over the environment variable. The file
+# survives restarts; mount /config as a volume and it survives re-creation too.
+if [ -s /config/provider ]; then
+    PROVIDER=$(head -c 64 /config/provider | tr -d '\r\n')
+fi
+
+# Flat JSON without jq.
+ipof()  { printf '%s' "$1" | tr ',' '\n' | sed -n 's/.*"ip" *: *"\([^"]*\)".*/\1/p' | head -1; }
+orgof() { printf '%s' "$1" | tr ',' '\n' | sed -n 's/.*"\(org\|asn_org\)" *: *"\([^"]*\)".*/\2/p' | head -1; }
+
+check_vpn() {
+    echo "== VPN =="
+    j=$($C https://ipinfo.io/json)
+    ip=$(ipof "$j"); org=$(orgof "$j")
+    printf "  exit IP      %s\n" "${ip:-could not be fetched}"
+    printf "  belongs to   %s\n" "${org:-unknown}"
+    if [ -z "$PROVIDER" ]; then
+        echo "  ?  No VPN provider set - no verdict given."
+        echo "     Set it to the name above if that is your VPN provider."
+    elif printf '%s' "$org" | grep -qiE -- "$PROVIDER"; then
+        echo "  OK exit belongs to your VPN provider."
+    else
+        echo "  !! exit does NOT belong to your VPN provider - traffic leaves the tunnel."
+        echo "     pattern: $PROVIDER"
+    fi
+}
+
+check_dns() {
+    echo "== DNS =="
+    id=$($C https://bash.ws/id)
+    [ -z "$id" ] && { echo "  could not get a test id from bash.ws"; return 1; }
+    # Force the lookups. curl is enough - it is the DNS QUERY that counts, not
+    # whether the connection succeeds. Hence the short timeout and silent failure.
+    i=1
+    while [ "$i" -le 10 ]; do
+        curl -s -m2 "http://$i.$id.bash.ws" >/dev/null 2>&1
+        i=$((i + 1))
+    done
+    r=$($C "https://bash.ws/dnsleak/test/$id?json")
+    [ -z "$r" ] && { echo "  no response from bash.ws"; return 1; }
+
+    seen=0; foreign=0
+    # Spaces become \001 so each record is ONE word to the for loop, then back
+    # again when printing - otherwise "OBEHosting AB" collapses to "OBEHostingAB".
+    for line in $(printf '%s' "$r" | tr '}' '\n' | tr ' ' '\001'); do
+        case "$line" in *'"type":"dns"'*) ;; *) continue ;; esac
+        d_ip=$(printf '%s' "$line" | sed -n 's/.*"ip":"\([^"]*\)".*/\1/p')
+        d_as=$(printf '%s' "$line" | sed -n 's/.*"asn":"\([^"]*\)".*/\1/p' | tr '\001' ' ')
+        [ -z "$d_ip" ] && continue
+        seen=$((seen + 1))
+        mark="  "
+        if [ -n "$PROVIDER" ] && ! printf '%s' "$d_as" | grep -qiE -- "$PROVIDER"; then
+            mark="!!"; foreign=$((foreign + 1))
+        fi
+        printf "  %s %-40s %s\n" "$mark" "$d_ip" "$d_as"
+    done
+
+    [ "$seen" = 0 ] && { echo "  no DNS servers seen"; return 1; }
+    if [ -z "$PROVIDER" ]; then
+        echo "  ?  No VPN provider set - no verdict given."
+    elif [ "$foreign" = 0 ]; then
+        echo "  OK all $seen resolvers belong to your VPN provider - no leak."
+    else
+        echo "  !! $foreign of $seen resolvers are outside your VPN provider - DNS is leaking."
+    fi
+}
+
+check_speed() {
+    echo "== Speed =="
+    # Ookla if present: picks the nearest server, runs several streams, no rate limit.
+    s=$(command -v speedtest 2>/dev/null || echo /tmp/speedtest)
+    if [ -x "$s" ]; then
+        "$s" --accept-license --accept-gdpr 2>/dev/null | grep -E "Download|Upload|Loss"
+        return
+    fi
+    # Fallback. Four streams - a single one gave 666 where eight gave 991 on the
+    # same link. The \n in -w is NOT optional: without it the values are glued
+    # into one number. Cloudflare answers 403 above 50 MB and 429 when hammered.
+    d=/tmp/.chk$$; mkdir -p "$d"
+    for i in 1 2 3 4; do
+        $C -m90 -o /dev/null -w '%{speed_download}\n' \
+           "https://speed.cloudflare.com/__down?bytes=25000000" > "$d/dl$i" 2>/dev/null &
+    done; wait
+    cat "$d"/dl* 2>/dev/null | awk '{s+=$1} END{if(s>0) printf "  Download: %.0f Mbps\n", s*8/1000000; else print "  Download: failed (429 = rate limited)"}'
+    head -c 25000000 /dev/zero > "$d/pay" 2>/dev/null
+    for i in 1 2 3 4; do
+        $C -m90 -o /dev/null -w '%{speed_upload}\n' \
+           --data-binary @"$d/pay" https://speed.cloudflare.com/__up > "$d/ul$i" 2>/dev/null &
+    done; wait
+    cat "$d"/ul* 2>/dev/null | awk '{s+=$1} END{if(s>0) printf "  Upload: %.0f Mbps\n", s*8/1000000; else print "  Upload: failed (429 = rate limited)"}'
+    rm -rf "$d"
+}
+
+case "${1:-all}" in
+    vpn)   check_vpn ;;
+    dns)   check_dns ;;
+    speed) check_speed ;;
+    all)   check_vpn; echo; check_dns; echo; check_speed ;;
+    *)     echo "usage: check [vpn|dns|speed|all]" >&2; exit 2 ;;
+esac

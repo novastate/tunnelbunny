@@ -1,0 +1,55 @@
+name: build and publish
+
+# Pushes on a version tag (v1.1, v1.2 …) and on manual dispatch.
+# Needs two repository secrets:
+#   DOCKERHUB_USERNAME  your Docker Hub user
+#   DOCKERHUB_TOKEN     an access token from Account Settings -> Security
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # QEMU is what makes `uname -m` inside the build report the TARGET arch.
+      # The Dockerfile relies on that to fetch the right speedtest binary -
+      # ARG TARGETARCH did not work, and produced an x86_64 binary in the
+      # arm64 image without failing the build.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/tunnelbunny
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Keeps the Docker Hub page in sync with README.md.
+      - uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_USERNAME }}/tunnelbunny
+          short-description: "Is my traffic in the VPN tunnel, is DNS leaking, how fast is it — from any container network"
