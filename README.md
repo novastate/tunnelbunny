@@ -160,7 +160,7 @@ version tag. One repository secret is needed: `DOCKERHUB_TOKEN` (an access token
 password). The username is written out in the workflow - it is not a secret.
 
 ```sh
-git tag v1.1 && git push origin v1.1
+git tag v1.1.0 && git push origin v1.1.0
 ```
 
 By hand, without CI:

@@ -1,6 +1,7 @@
 name: build and publish
 
-# Pushes on a version tag (v1.1, v1.2 …) and on manual dispatch.
+# Pushes on a version tag and on manual dispatch. The tag must be full semver:
+# v1.1.0 works, v1.1 is rejected by docker/metadata-action.
 # Needs ONE repository secret:
 #   DOCKERHUB_TOKEN   an access token from Account Settings -> Security
 # The username is not a secret, so it is written out below - one less thing to
