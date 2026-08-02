@@ -285,7 +285,8 @@ function renderVpn(t){
 
 function renderDns(t){
   const rows = [...t.matchAll(/^\s*(!!|)\s*((?:\d{1,3}\.){3}\d{1,3}|[0-9a-f:]{6,})\s{2,}(.+?)\s*$/gmi)];
-  const ok = /^\s*OK /m.test(t), bad = /^\s*!! \d+ of/m.test(t);
+  const split = /SPLIT ROUTING/.test(t);
+  const ok = !split && /^\s*OK /m.test(t), bad = /^\s*!! \d+ of/m.test(t);
   const n  = rows.length;
   const list = rows.map((m,i)=>
     `<div class="dnsline ${m[1]?'bad':''} rowin" style="animation-delay:${i*45}ms">
@@ -295,7 +296,8 @@ function renderDns(t){
     <div style="margin-top:.35rem">${list || '<div class="idle">none seen</div>'}</div>
     ${ok  ? vLine('ok','All belong to your VPN provider.') : ''}
     ${bad ? vLine('bad',(t.match(/!! (\d+ of \d+[^\n]*)/)||[,'DNS is leaking'])[1]) : ''}
-    ${!ok&&!bad ? vLine('unk','No provider set — no verdict given.') : ''}`);
+    ${split ? vLine('bad','Split routing — this covers bash.ws only, not the network.') : ''}
+    ${!ok&&!bad&&!split ? vLine('unk','No provider set — no verdict given.') : ''}`);
 }
 
 function renderSpeed(t){

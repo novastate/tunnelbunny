@@ -25,36 +25,45 @@ if [ -s /config/provider ]; then
     PROVIDER=$(head -c 64 /config/provider | tr -d '\r\n')
 fi
 
+SPLIT_FLAG=/tmp/.tb-split.$$
+trap 'rm -f "$SPLIT_FLAG"' EXIT
+
+# Does this network route different destinations differently?
+#
+# Leak-test sites are exactly the domains people send through their VPN, so a
+# check that asks only one of them measures the path to THAT SITE - not the
+# network's egress. Measured on a split-routed host, same moment:
+#   ipinfo.io -> VPN exit,  icanhazip.com / ifconfig.co / api.ipify.org -> ISP
+# Asking two services on different domains is what makes that visible.
+#
+# Sets $SPLIT_A / $SPLIT_B and returns 0 when they disagree. Cached per run.
+split_routing() {
+    if [ ! -f "$SPLIT_FLAG" ]; then
+        a=$($C https://ipinfo.io/ip     | tr -d '\r\n ')
+        b=$($C https://icanhazip.com    | tr -d '\r\n ')
+        { echo "$a"; echo "$b"; } > "$SPLIT_FLAG"
+    fi
+    SPLIT_A=$(sed -n 1p "$SPLIT_FLAG"); SPLIT_B=$(sed -n 2p "$SPLIT_FLAG")
+    [ -n "$SPLIT_A" ] && [ -n "$SPLIT_B" ] && [ "$SPLIT_A" != "$SPLIT_B" ]
+}
+
 # Flat JSON without jq.
 ipof()  { printf '%s' "$1" | tr ',' '\n' | sed -n 's/.*"ip" *: *"\([^"]*\)".*/\1/p' | head -1; }
 orgof() { printf '%s' "$1" | tr ',' '\n' | sed -n 's/.*"\(org\|asn_org\)" *: *"\([^"]*\)".*/\2/p' | head -1; }
 
 check_vpn() {
     echo "== VPN =="
-    # TWO echo services on DIFFERENT domains, deliberately.
-    #
-    # Leak-test sites are exactly the domains people route through their VPN, so
-    # asking only one of them measures the path to THAT SITE - not the network's
-    # egress. Measured on a split-routed network: ipinfo.io answered from the VPN
-    # exit while icanhazip.com, ifconfig.co and api.ipify.org all answered from the
-    # ISP, same host, same moment. A single check reported a clean OK for a network
-    # that was not in the tunnel at all.
-    #
-    # Two answers that agree = that is the egress, and the verdict means something.
-    # Two that disagree = split routing, which no single verdict can describe.
     j=$($C https://ipinfo.io/json)
     ip=$(ipof "$j"); org=$(orgof "$j")
-    ip2=$($C https://icanhazip.com | tr -d '\r\n ')
-
     printf "  exit IP      %s\n" "${ip:-could not be fetched}"
     printf "  belongs to   %s\n" "${org:-unknown}"
 
-    if [ -n "$ip" ] && [ -n "$ip2" ] && [ "$ip" != "$ip2" ]; then
-        org2=$($C "https://ipinfo.io/$ip2/json" | tr ',' '\n' \
+    if split_routing; then
+        org2=$($C "https://ipinfo.io/$SPLIT_B/json" | tr ',' '\n' \
                | sed -n 's/.*"org" *: *"\([^"]*\)".*/\1/p' | head -1)
         echo "  !! SPLIT ROUTING - destinations take different paths."
-        printf "     ipinfo.io    -> %s  %s\n" "$ip"  "$org"
-        printf "     icanhazip.com-> %s  %s\n" "$ip2" "${org2:-unknown}"
+        printf "     ipinfo.io     -> %s  %s\n" "$SPLIT_A" "$org"
+        printf "     icanhazip.com -> %s  %s\n" "$SPLIT_B" "${org2:-unknown}"
         echo "     Only some traffic is tunnelled. No single verdict describes this"
         echo "     network - check the destinations you actually care about."
         return
@@ -102,6 +111,18 @@ check_dns() {
     done
 
     [ "$seen" = 0 ] && { echo "  no DNS servers seen"; return 1; }
+
+    # The test can only ever measure the domain it uses - bash.ws. On a network
+    # that resolves some domains differently, "no leak" here says nothing about
+    # anything else, so the verdict must not be stated cleanly. Same failure the
+    # VPN check had: a single endpoint cannot describe a split-routed network.
+    if split_routing; then
+        echo "  !! SPLIT ROUTING - this result covers bash.ws only."
+        echo "     The network resolves different domains differently, so other"
+        echo "     names may go somewhere else entirely. No general verdict given."
+        return
+    fi
+
     if [ -z "$PROVIDER" ]; then
         echo "  ?  No VPN provider set - no verdict given."
     elif [ "$foreign" = 0 ]; then
