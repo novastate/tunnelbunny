@@ -49,7 +49,12 @@ jobs:
           cache-to: type=gha,mode=max
 
       # Keeps the Docker Hub page in sync with README.md.
-      - uses: peter-evans/dockerhub-description@v4
+      # Non-blocking: a Read/Write access token is NOT enough to edit repository
+      # metadata - Docker Hub answers 403 Forbidden. The image is already pushed
+      # by then, so a failed description sync must not fail the release. Set the
+      # description by hand, or use a token with admin scope.
+      - continue-on-error: true
+        uses: peter-evans/dockerhub-description@v4
         with:
           username: deepcrash
           password: ${{ secrets.DOCKERHUB_TOKEN }}
