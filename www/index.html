@@ -186,8 +186,10 @@ const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'
 // Several providers have more than one org name in the ASN registry, hence the
 // alternations. Mullvad AS39351 is "31173 Services AB"; NordVPN is both Tefincom
 // and PacketHub. A single brand name would report a false leak.
-// Verified against the ASN registry. Several providers register under a name that
-// is not their brand, so these are patterns, not names.
+// Only providers verified against the ASN registry are listed. A guessed pattern
+// reports a leak that is not there, which is the worst answer this tool can give -
+// so the list stays short and anything else goes through "Other", or through the
+// button that offers the name actually seen after a run.
 const PROVIDERS = [
   ['OVPN',       'Obehosting|OVPN'],
   ['Mullvad',    '31173 Services|Mullvad'],
@@ -195,26 +197,12 @@ const PROVIDERS = [
   ['NordVPN',    'Tefincom|PacketHub|NordVPN'],
   ['Surfshark',  'Surfshark'],
 ];
-// Best guesses - NOT confirmed against the registry. Shown separately so nobody
-// trusts an unverified pattern: a wrong one reports a leak that is not there,
-// which is the worst answer this tool can give. Run the check once and use the
-// button that offers the name actually seen; that comes from the registry.
-const UNVERIFIED = [
-  ['ExpressVPN', 'Express ?VPN'],
-  ['Private Internet Access', 'Private Internet Access|London Trust|PIA'],
-  ['IVPN',       'IVPN'],
-  ['AirVPN',     'AirVPN'],
-  ['Windscribe', 'Windscribe'],
-  ['CyberGhost', 'CyberGhost'],
-  ['Njalla',     'Njalla'],
-];
-const ALL_PROVIDERS = [...PROVIDERS, ...UNVERIFIED];
 
 /* ---------- provider ---------- */
 let current = '';
 function showProvider(p){
   current = p;
-  const known = ALL_PROVIDERS.find(x => x[1] === p);
+  const known = PROVIDERS.find(x => x[1] === p);
   prov.className = p ? 'prov' : 'prov unset';
   prov.innerHTML = p
     ? `VPN provider: <b>${esc(known ? known[0] : p)}</b> <button id="edit">change</button>`
@@ -224,11 +212,9 @@ function showProvider(p){
 }
 function editProvider(){
   prov.className = 'prov';
-  const known = ALL_PROVIDERS.find(x => x[1] === current);
-  const opt = ([n,v]) => `<option value="${esc(v)}"${v===current?' selected':''}>${esc(n)}</option>`;
-  const opts = `<optgroup label="Verified">${PROVIDERS.map(opt).join('')}</optgroup>` +
-               `<optgroup label="Unverified — confirm after your first run">` +
-               `${UNVERIFIED.map(opt).join('')}</optgroup>`;
+  const known = PROVIDERS.find(x => x[1] === current);
+  const opts = PROVIDERS.map(([n,v]) =>
+    `<option value="${esc(v)}"${v===current?' selected':''}>${esc(n)}</option>`).join('');
   prov.innerHTML =
     `<select id="sel"><option value="">— choose provider —</option>${opts}` +
     `<option value="__custom"${current && !known ? ' selected':''}>Other (custom pattern)…</option></select>` +
@@ -239,8 +225,8 @@ function editProvider(){
   hint.innerHTML = 'Matched against the ASN/org field on the <b>belongs to</b> line. Several providers '
     + 'have more than one company name — Mullvad\u2019s network is <b>31173 Services AB</b>, '
     + 'NordVPN appears as both <b>Tefincom</b> and <b>PacketHub</b> — so these are patterns, '
-    + 'not names. The unverified ones are best guesses — run the check once and use the '
-    + 'button that offers the name actually seen, which comes from the registry.';
+    + 'not names. Only providers verified against the registry are listed — for anything '
+    + 'else, run the check once and use the button that offers the name it actually saw.';
   sel.onchange = () => {
     if (sel.value === '__custom'){ inp.style.display='inline-block'; inp.focus(); }
     else { inp.style.display='none'; inp.value = sel.value; }

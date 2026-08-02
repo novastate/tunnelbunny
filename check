@@ -12,8 +12,9 @@
 #   NordVPN    "Tefincom|PacketHub|NordVPN"  <- both companies appear
 #   Proton     "Proton"
 #   Surfshark  "Surfshark"
-# Anything else: run the check once with nothing set and use the name it reports.
-# Do not guess - a wrong pattern reports a leak that is not there.
+# That is the whole verified list. Anything else: run the check once with nothing set
+# and use the name it reports - that string comes from the registry. Do not guess; a
+# wrong pattern reports a leak that is not there.
 # Normally set from the web UI, which ships the list. Don't know yours? Run the
 # VPN check with nothing set and read the "belongs to" line.
 #
