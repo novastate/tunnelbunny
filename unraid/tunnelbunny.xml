@@ -2,26 +2,40 @@
 <Container version="2">
   <Name>tunnelbunny</Name>
   <Repository>deepcrash/tunnelbunny:latest</Repository>
-  <Registry/>
+  <Registry>https://hub.docker.com/r/deepcrash/tunnelbunny</Registry>
   <Network>bridge</Network>
   <MyIP/>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
-  <Support/>
-  <Project/>
-  <Overview>Diagnostics container for VPN networks. Answers three questions from the network it sits on: is traffic in the tunnel, is DNS leaking, how fast is it. Click WebUI for the page, or Console and run: check (vpn|dns|speed|all). Also ships curl, dig, mtr, ping and Ookla speedtest. </Overview>
-  <Category>Tools:Utilities Network:Other</Category>
+  <Support>https://github.com/novastate/tunnelbunny/issues</Support>
+  <Project>https://github.com/novastate/tunnelbunny</Project>
+  <Overview>
+    Is my traffic in the VPN tunnel, is DNS leaking, and how fast is it?
+
+    Tunnel Bunny answers those three questions from the network it sits on. Put it on a VLAN, or borrow another container's network namespace with --net=container:name, and it measures from exactly that position without touching the container you are debugging.
+
+    The VPN and DNS verdicts are based on YOUR provider, not on your ISP: set VPN Provider to a pattern matching the ASN/org of your exit, and every resolver seen is checked against it. With nothing set the measurement is shown but no verdict is claimed. Several providers register under a different company name - Mullvad's network is "31173 Services AB", NordVPN appears as both Tefincom and PacketHub - so the web UI ships a list, and after a run it offers the name it actually saw.
+
+    Click WebUI for the page, or open Console and run: check (vpn|dns|speed|all). The image also ships curl, dig, mtr, ping and Ookla's speedtest, so it doubles as a shell to debug from.
+  </Overview>
+  <Category>Tools:Utilities Network:Other Network:Management</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
-  <TemplateURL/>
-  <Icon>https://raw.githubusercontent.com/selfhst/icons/main/png/speedtest-tracker.png</Icon>
+  <TemplateURL>https://raw.githubusercontent.com/novastate/tunnelbunny/main/unraid/tunnelbunny.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/novastate/tunnelbunny/main/icon/tunnelbunny.png</Icon>
   <ExtraParams/>
   <PostArgs/>
   <CPUset/>
-  <DateInstalled>1785000000</DateInstalled>
+  <DateInstalled/>
   <DonateText/>
   <DonateLink/>
-  <Config Name="WebUI" Target="8080" Default="8080" Mode="tcp" Description="Webbgranssnitt" Type="Port" Display="always" Required="false" Mask="false">8080</Config>
-  <Config Name="VPN provider" Target="VPN_PROVIDER" Default="" Mode="" Description="Regex matched against the ASN/org field. Normally set from the web UI, which ships a list of common providers. Several have more than one company name - Mullvad is 31173 Services, NordVPN is Tefincom or PacketHub." Type="Variable" Display="always" Required="false" Mask="false"></Config>
-  <Config Name="Config" Target="/config" Default="/mnt/user/appdata/tunnelbunny" Mode="rw" Description="Sparar VPN provideren satt i webbgranssnittet." Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/tunnelbunny</Config>
   <Requires/>
+  <Config Name="WebUI" Target="8080" Default="8080" Mode="tcp"
+          Description="Web interface" Type="Port" Display="always"
+          Required="true" Mask="false">8080</Config>
+  <Config Name="VPN Provider" Target="VPN_PROVIDER" Default="" Mode=""
+          Description="Regex matched against the ASN/org field of your exit IP. Leave empty and set it from the web UI, which ships a list of common providers. Examples: Mullvad = 31173 Services|Mullvad, NordVPN = Tefincom|PacketHub|NordVPN, Proton = Proton, OVPN = Obehosting|OVPN. Left empty, the measurement is shown but no verdict is given."
+          Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="Config" Target="/config" Default="/mnt/user/appdata/tunnelbunny" Mode="rw"
+          Description="Stores the VPN provider set from the web UI. Without it the setting is lost when the container is re-created."
+          Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/tunnelbunny</Config>
 </Container>
