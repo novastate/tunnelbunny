@@ -1,9 +1,10 @@
 name: build and publish
 
 # Pushes on a version tag (v1.1, v1.2 …) and on manual dispatch.
-# Needs two repository secrets:
-#   DOCKERHUB_USERNAME  your Docker Hub user
-#   DOCKERHUB_TOKEN     an access token from Account Settings -> Security
+# Needs ONE repository secret:
+#   DOCKERHUB_TOKEN   an access token from Account Settings -> Security
+# The username is not a secret, so it is written out below - one less thing to
+# get wrong, and the image name cannot silently end up under the wrong account.
 on:
   push:
     tags: ['v*']
@@ -24,7 +25,7 @@ jobs:
 
       - uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: deepcrash
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - id: meta
@@ -49,7 +50,7 @@ jobs:
       # Keeps the Docker Hub page in sync with README.md.
       - uses: peter-evans/dockerhub-description@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: deepcrash
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: deepcrash/tunnelbunny
           short-description: "Is my traffic in the VPN tunnel, is DNS leaking, how fast is it — from any container network"

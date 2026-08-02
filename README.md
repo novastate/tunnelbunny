@@ -156,8 +156,8 @@ Verified rejected: `a;id`, `a$(id)`, `` a`id` ``, `a&b`, `a>b`, `a/b`, `../etc/p
 ## Releasing
 
 `.github/workflows/docker.yml` builds `linux/amd64` + `linux/arm64` and pushes on a
-version tag. Two repository secrets are needed: `DOCKERHUB_USERNAME` and
-`DOCKERHUB_TOKEN` (an access token, not your password).
+version tag. One repository secret is needed: `DOCKERHUB_TOKEN` (an access token, not your
+password). The username is written out in the workflow - it is not a secret.
 
 ```sh
 git tag v1.1 && git push origin v1.1
