@@ -15,13 +15,13 @@ docker run -d -p 8080:8080 -e VPN_PROVIDER='Mullvad|31173 Services' deepcrash/tu
 Or build it yourself:
 
 ```sh
-docker build -t tunnelbunny:1.3 .
+docker build -t tunnelbunny:1.4 .
 
 # web UI on :8080
-docker run -d -p 8080:8080 -e VPN_PROVIDER='Mullvad|31173 Services' tunnelbunny:1.3
+docker run -d -p 8080:8080 -e VPN_PROVIDER='Mullvad|31173 Services' tunnelbunny:1.4
 
 # or one-shot in the terminal
-docker run --rm -e VPN_PROVIDER='Mullvad|31173 Services' tunnelbunny:1.3 vpn
+docker run --rm -e VPN_PROVIDER='Mullvad|31173 Services' tunnelbunny:1.4 vpn
 ```
 
 `check [vpn|dns|speed|all]` — with no argument the container starts the web UI.
@@ -30,7 +30,7 @@ Also inside: `curl`, `dig`, `mtr`, `ping` and Ookla's `speedtest`, so it doubles
 shell to poke around from:
 
 ```sh
-docker run --rm -it --entrypoint sh tunnelbunny:1.3
+docker run --rm -it --entrypoint sh tunnelbunny:1.4
 ```
 
 ### Measure from a different network than the host's
@@ -39,10 +39,10 @@ This is the point of it.
 
 ```sh
 # put it directly on a VLAN
-docker run --rm --network br0.9 tunnelbunny:1.3
+docker run --rm --network br0.9 tunnelbunny:1.4
 
 # or borrow an existing container's network namespace - measures exactly its view
-docker run --rm --network container:qbittorrent tunnelbunny:1.3
+docker run --rm --network container:qbittorrent tunnelbunny:1.4
 ```
 
 The second one is what you want when debugging: you measure from *precisely* the
@@ -63,6 +63,11 @@ company, and the registered name is rarely the brand.
 | Proton VPN | `Proton AG`, `Proton Technologies AG` | `Proton` |
 | OVPN | `Obehosting AB` | `Obehosting\|OVPN` |
 | Surfshark | `Surfshark Ltd.` | `Surfshark` |
+
+Those five are **verified against the ASN registry**. The web UI lists a handful more
+under *Unverified* — they are best guesses, and a wrong pattern reports a leak that is
+not there. For anything not in the verified group, run the check once with nothing set
+and use the button that offers the name it actually saw.
 
 > A free-text field where you type "Mullvad" would report a **leak while everything
 > was fine** — Mullvad's network is registered as `31173 Services AB`. Nobody guesses
@@ -118,7 +123,7 @@ docker run -d --name tunnelbunny --network my-vpn-net --ip 10.9.0.12 --restart u
   -v /mnt/user/appdata/tunnelbunny:/config \
   --label net.unraid.docker.webui='http://[IP]:[PORT:8080]/' \
   --label net.unraid.docker.icon='https://raw.githubusercontent.com/selfhst/icons/main/png/speedtest-tracker.png' \
-  tunnelbunny:1.3
+  tunnelbunny:1.4
 ```
 
 Two things Unraid does that are not obvious:
@@ -192,7 +197,7 @@ By hand, without CI:
 
 ```sh
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t deepcrash/tunnelbunny:1.3 -t deepcrash/tunnelbunny:latest --push .
+  -t deepcrash/tunnelbunny:1.4 -t deepcrash/tunnelbunny:latest --push .
 ```
 
 `--push` is required — buildx cannot put a multi-arch image in the local image store.

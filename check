@@ -6,11 +6,14 @@
 # VPN_PROVIDER is a REGEX matched against the ASN/org field (grep -iE).
 # Several providers have more than one registered company name, so alternations
 # are needed - a single brand name would report a false leak:
+# Verified against the ASN registry:
 #   OVPN       "Obehosting|OVPN"
 #   Mullvad    "31173 Services|Mullvad"      <- AS39351 is "31173 Services AB"
 #   NordVPN    "Tefincom|PacketHub|NordVPN"  <- both companies appear
 #   Proton     "Proton"
 #   Surfshark  "Surfshark"
+# Anything else: run the check once with nothing set and use the name it reports.
+# Do not guess - a wrong pattern reports a leak that is not there.
 # Normally set from the web UI, which ships the list. Don't know yours? Run the
 # VPN check with nothing set and read the "belongs to" line.
 #
