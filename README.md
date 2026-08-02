@@ -9,7 +9,7 @@ Alpine, ~41 MB. One page with buttons, and a CLI that does the same thing.
 ## Run it
 
 ```sh
-docker run -d -p 8080:8080 -e VPN_PROVIDER='Mullvad|31173 Services' YOURNAME/tunnelbunny
+docker run -d -p 8080:8080 -e VPN_PROVIDER='Mullvad|31173 Services' deepcrash/tunnelbunny
 ```
 
 Or build it yourself:
@@ -167,7 +167,7 @@ By hand, without CI:
 
 ```sh
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t YOURNAME/tunnelbunny:1.1 -t YOURNAME/tunnelbunny:latest --push .
+  -t deepcrash/tunnelbunny:1.1 -t deepcrash/tunnelbunny:latest --push .
 ```
 
 `--push` is required — buildx cannot put a multi-arch image in the local image store.
