@@ -144,22 +144,50 @@ check_speed() {
         "$s" --accept-license --accept-gdpr 2>/dev/null | grep -E "Download|Upload|Loss"
         return
     fi
-    # Fallback. Four streams - a single one gave 666 where eight gave 991 on the
-    # same link. The \n in -w is NOT optional: without it the values are glued
-    # into one number. Cloudflare answers 403 above 50 MB and 429 when hammered.
+    # Fallback: parallel streams against Cloudflare.
+    #
+    # Throughput is total bytes over WALL CLOCK - NOT the sum of each stream's
+    # reported speed. Summing curl's %{speed_*} across parallel transfers
+    # overcounts, because every stream measures over its own lifetime and they do
+    # not overlap perfectly. That version reported 1009 and 1166 Mbps on a gigabit
+    # link, which is physically impossible and should have been caught by the
+    # number alone.
+    #
+    # /proc/uptime gives centisecond resolution everywhere on Linux; busybox date
+    # has no %N. Cloudflare answers 403 above 50 MB and 429 when hammered.
     d=/tmp/.chk$$; mkdir -p "$d"
-    for i in 1 2 3 4; do
-        $C -m90 -o /dev/null -w '%{speed_download}\n' \
-           "https://speed.cloudflare.com/__down?bytes=25000000" > "$d/dl$i" 2>/dev/null &
+    # 50 MB per strom, inte 25: TLS-handskakning och anslutning ingar i
+    # vaggklockan, och vid 0.3 s overforingar dominerar de matningen. Vid 50 MB
+    # blir de en liten andel i stallet. 50 MB ar ocksa Cloudflares tak per begaran.
+    N=4; MB=50
+
+    t0=$(cut -d' ' -f1 /proc/uptime)
+    for i in $(seq 1 $N); do
+        $C -m90 -o /dev/null -w '%{size_download}\n' \
+           "https://speed.cloudflare.com/__down?bytes=$((MB * 1000000))" > "$d/dl$i" 2>/dev/null &
     done; wait
-    cat "$d"/dl* 2>/dev/null | awk '{s+=$1} END{if(s>0) printf "  Download: %.0f Mbps\n", s*8/1000000; else print "  Download: failed (429 = rate limited)"}'
-    head -c 25000000 /dev/zero > "$d/pay" 2>/dev/null
-    for i in 1 2 3 4; do
-        $C -m90 -o /dev/null -w '%{speed_upload}\n' \
+    t1=$(cut -d' ' -f1 /proc/uptime)
+    cat "$d"/dl* 2>/dev/null | awk -v t0="$t0" -v t1="$t1" '
+        {b+=$1} END{ d=t1-t0
+            if (b>0 && d>0) printf "  Download: ~%.0f Mbps\n", b*8/d/1000000
+            else print "  Download: failed (429 = rate limited)" }'
+
+    head -c $((MB * 1000000)) /dev/zero > "$d/pay" 2>/dev/null
+    t0=$(cut -d' ' -f1 /proc/uptime)
+    for i in $(seq 1 $N); do
+        $C -m90 -o /dev/null -w '%{size_upload}\n' \
            --data-binary @"$d/pay" https://speed.cloudflare.com/__up > "$d/ul$i" 2>/dev/null &
     done; wait
-    cat "$d"/ul* 2>/dev/null | awk '{s+=$1} END{if(s>0) printf "  Upload: %.0f Mbps\n", s*8/1000000; else print "  Upload: failed (429 = rate limited)"}'
+    t1=$(cut -d' ' -f1 /proc/uptime)
+    cat "$d"/ul* 2>/dev/null | awk -v t0="$t0" -v t1="$t1" '
+        {b+=$1} END{ d=t1-t0
+            if (b>0 && d>0) printf "  Upload: ~%.0f Mbps\n", b*8/d/1000000
+            else print "  Upload: failed (429 = rate limited)" }'
     rm -rf "$d"
+    # Understates: TLS setup counts against the wall clock, one endpoint rarely
+    # saturates a fast link, and runs vary widely. Measured ~600-790 Mbps against
+    # Ookla's 920 on the same host. Approximate on purpose - the tilde says so.
+    echo "  (approximate - install the Ookla binary for a real measurement)"
 }
 
 case "${1:-all}" in

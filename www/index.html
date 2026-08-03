@@ -306,8 +306,8 @@ function renderDns(t){
 
 function renderSpeed(t){
   const g = re => { const m = t.match(re); return m ? parseFloat(m[1]) : null; };
-  const dn = g(/Download:\s*([\d.]+)\s*Mbps/i) ?? g(/Download:\s*([\d.]+)\s*Mbps/i);
-  const up = g(/Upload:\s*([\d.]+)\s*Mbps/i)   ?? g(/Upload:\s*([\d.]+)\s*Mbps/i);
+  const dn = g(/Download:\s*~?([\d.]+)\s*Mbps/i);
+  const up = g(/Upload:\s*~?([\d.]+)\s*Mbps/i);
   const ls = g(/Packet Loss:\s*([\d.]+)/i);
   if (dn === null && up === null){ setCard('speed','bad',
     `<div class="idle">${esc(t.replace(/^== .* ==\s*/,'').trim()||'measurement failed')}</div>`);

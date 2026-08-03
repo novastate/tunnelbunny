@@ -15,13 +15,13 @@ docker run -d -p 8080:8080 -e VPN_PROVIDER='Mullvad|31173 Services' deepcrash/tu
 Or build it yourself:
 
 ```sh
-docker build -t tunnelbunny:1.5 .
+docker build -t tunnelbunny:1.6 .
 
 # web UI on :8080
-docker run -d -p 8080:8080 -e VPN_PROVIDER='Mullvad|31173 Services' tunnelbunny:1.5
+docker run -d -p 8080:8080 -e VPN_PROVIDER='Mullvad|31173 Services' tunnelbunny:1.6
 
 # or one-shot in the terminal
-docker run --rm -e VPN_PROVIDER='Mullvad|31173 Services' tunnelbunny:1.5 vpn
+docker run --rm -e VPN_PROVIDER='Mullvad|31173 Services' tunnelbunny:1.6 vpn
 ```
 
 `check [vpn|dns|speed|all]` — with no argument the container starts the web UI.
@@ -30,7 +30,7 @@ Also inside: `curl`, `dig`, `mtr`, `ping` and Ookla's `speedtest`, so it doubles
 shell to poke around from:
 
 ```sh
-docker run --rm -it --entrypoint sh tunnelbunny:1.5
+docker run --rm -it --entrypoint sh tunnelbunny:1.6
 ```
 
 ### Measure from a different network than the host's
@@ -39,10 +39,10 @@ This is the point of it.
 
 ```sh
 # put it directly on a VLAN
-docker run --rm --network br0.9 tunnelbunny:1.5
+docker run --rm --network br0.9 tunnelbunny:1.6
 
 # or borrow an existing container's network namespace - measures exactly its view
-docker run --rm --network container:qbittorrent tunnelbunny:1.5
+docker run --rm --network container:qbittorrent tunnelbunny:1.6
 ```
 
 The second one is what you want when debugging: you measure from *precisely* the
@@ -127,7 +127,7 @@ docker run -d --name tunnelbunny --network my-vpn-net --ip 10.9.0.12 --restart u
   -v /mnt/user/appdata/tunnelbunny:/config \
   --label net.unraid.docker.webui='http://[IP]:[PORT:8080]/' \
   --label net.unraid.docker.icon='https://raw.githubusercontent.com/selfhst/icons/main/png/speedtest-tracker.png' \
-  tunnelbunny:1.5
+  tunnelbunny:1.6
 ```
 
 Two things Unraid does that are not obvious:
@@ -172,6 +172,7 @@ That keeps `check` useful as a standalone CLI tool.
 | `speed.cloudflare.com` | **403** above 50 MB, **429** when run repeatedly |
 | `curl -w '%{speed_download}'` without `\n` | values are glued into one number; `awk` summed nonsense and reported astronomical speeds |
 | Single-stream measurement | 666 Mbps with one stream vs 991 with eight, same link, same moment |
+| Summing `%{speed_*}` across parallel streams | reported **1009 and 1166 Mbps on a gigabit link** — physically impossible, and the number alone should have caught it. Each stream measures over its own lifetime and they do not overlap, so the sum overcounts. Total bytes over wall clock instead |
 | Measuring down against one host and up against another | looked like a directional asymmetry in the tunnel. It was two different **paths** |
 | Asking a single echo service | reported a clean OK for a network that was not tunnelled, because the test domain itself was VPN-routed. Two services on different domains now, and disagreement is reported as split routing |
 | `tr -d ' '` in the DNS loop | stripped the spaces out of the ASN name: `AS42675 OBEHosting AB` became `AS42675OBEHostingAB` |
@@ -201,7 +202,7 @@ By hand, without CI:
 
 ```sh
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t deepcrash/tunnelbunny:1.5 -t deepcrash/tunnelbunny:latest --push .
+  -t deepcrash/tunnelbunny:1.6 -t deepcrash/tunnelbunny:latest --push .
 ```
 
 `--push` is required — buildx cannot put a multi-arch image in the local image store.
