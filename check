@@ -139,9 +139,14 @@ check_dns() {
 check_speed() {
     echo "== Speed =="
     # Ookla if present: picks the nearest server, runs several streams, no rate limit.
+    #
+    # Server is kept, not just the numbers: nothing is pinned here, so Ookla picks
+    # the nearest server on latency at EVERY run - and "nearest" is measured from
+    # the exit, not from you. Turn a VPN on and both the path and the measuring
+    # server change, so two runs are only comparable if this line matches.
     s=$(command -v speedtest 2>/dev/null || echo /tmp/speedtest)
     if [ -x "$s" ]; then
-        "$s" --accept-license --accept-gdpr 2>/dev/null | grep -E "Download|Upload|Loss"
+        "$s" --accept-license --accept-gdpr 2>/dev/null | grep -E "Server|Download|Upload|Loss"
         return
     fi
     # Fallback: parallel streams against Cloudflare.
@@ -155,6 +160,9 @@ check_speed() {
     #
     # /proc/uptime gives centisecond resolution everywhere on Linux; busybox date
     # has no %N. Cloudflare answers 403 above 50 MB and 429 when hammered.
+    # Named for the same reason as the Ookla line above: anycast, so which PoP
+    # answers follows the routing and is not fixed either.
+    echo "  Server: speed.cloudflare.com (anycast)"
     d=/tmp/.chk$$; mkdir -p "$d"
     # 50 MB per strom, inte 25: TLS-handskakning och anslutning ingar i
     # vaggklockan, och vid 0.3 s overforingar dominerar de matningen. Vid 50 MB
