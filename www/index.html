@@ -112,13 +112,30 @@ h1{margin:0;font-size:1.34rem;font-weight:650;letter-spacing:-.025em}
 .dial.off-speed .arc[data-k="speed"], .dial.off-speed .lab[data-k="speed"]{opacity:.3}
 @keyframes breathe{0%,100%{opacity:.35}50%{opacity:1}}
 
+/* Idle invitation. Nothing on this page moves until you press the dial, so the
+   dial has to say that it is the thing to press - a still, grey circle does not.
+   The ping reads as a network probe going out, which is what the button does. */
+.dial .ping{fill:none;stroke:var(--accent);stroke-width:1.5;opacity:0;
+  transform-origin:140px 140px}
+.go.ready .dial .ping{animation:ping 3s cubic-bezier(.25,.6,.3,1) infinite}
+.go.ready .dial .ping:nth-of-type(2){animation-delay:1.5s}
+@keyframes ping{
+  0%{transform:scale(.97);opacity:0}
+  12%{opacity:.42}
+  100%{transform:scale(1.22);opacity:0}}
+/* Colour the invitation, never a verdict. Marked with an explicit class rather than
+   :not(.ok):not(.bad) - :not() carries its argument's specificity, so that version
+   outranked .word.ok and repainted the result. */
+.go.ready .word.invite{color:var(--accent);text-shadow:0 0 22px rgba(79,216,196,.28)}
+.go.ready:hover .word.invite{color:#eafffb;text-shadow:0 0 26px rgba(79,216,196,.5)}
+.go.ready:hover .ring-hit{stroke:#2f4a52}
+
 .face{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:.5rem;pointer-events:none;text-align:center;padding:0 18%}
 .word{font:600 3.4rem/1 var(--mono);letter-spacing:.13em;margin-right:-.13em;color:var(--ink)}
 .word.sm{font-size:1.2rem;letter-spacing:.17em;margin-right:-.17em}
 .word.ok{color:var(--ok)} .word.bad{color:var(--bad)} .word.warn{color:var(--warn)}
 .note{font:500 .72rem/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
-.go:hover:not(:disabled) .word{color:#fff}
 .go:hover:not(:disabled) .ring-hit{stroke:#243040}
 .ring-hit{fill:none;stroke:#1b2430;stroke-width:1;transition:stroke .2s}
 
@@ -224,7 +241,7 @@ pre{margin:0;padding:0 1rem 1rem;overflow-x:auto;white-space:pre;
       <button data-w="speed" aria-pressed="false">Speed</button>
     </div>
 
-    <button class="go" id="go">
+    <button class="go ready" id="go">
       <svg class="dial" id="dial" viewBox="0 0 280 280" aria-hidden="true">
         <defs>
           <radialGradient id="burrow" cx="50%" cy="50%" r="50%">
@@ -235,6 +252,8 @@ pre{margin:0;padding:0 1rem 1rem;overflow-x:auto;white-space:pre;
         </defs>
         <circle class="well" cx="140" cy="140" r="94"/>
         <circle class="depth" cx="140" cy="140" r="72"/>
+        <circle class="ping" cx="140" cy="140" r="94"/>
+        <circle class="ping" cx="140" cy="140" r="94"/>
         <circle class="ring-hit" cx="140" cy="140" r="94"/>
         <g transform="rotate(-210 140 140)">
           <circle class="arc" data-k="vpn"   cx="140" cy="140" r="110"
@@ -249,7 +268,7 @@ pre{margin:0;padding:0 1rem 1rem;overflow-x:auto;white-space:pre;
         <text class="lab" data-k="speed" x="140" y="266">SPEED</text>
       </svg>
       <span class="face" id="face">
-        <span class="word">GO</span>
+        <span class="word invite">GO</span>
         <span class="note">start the check</span>
       </span>
     </button>
@@ -361,7 +380,9 @@ async function save(v){
 const state = {vpn:'', dns:'', speed:''};
 function setState(k, s){ state[k] = s; dial.dataset[k] = s; }
 function setFace(word, note, cls){
-  face.innerHTML = `<span class="word${cls?' '+cls:''}${word.length>2?' sm':''}">${esc(word)}</span>`
+  // No verdict class means this is an invitation to press, not a result - it gets
+  // the accent colour; a result keeps its own green/red/amber.
+  face.innerHTML = `<span class="word ${cls || 'invite'}${word.length>2?' sm':''}">${esc(word)}</span>`
                  + `<span class="note">${esc(note)}</span>`;
 }
 
@@ -529,6 +550,7 @@ async function run(){
   if (busy) return;
   busy = true; rawAll = ''; splitSeen = false; foot.textContent = '';
   go.disabled = true;
+  go.classList.remove('ready');          // the arcs carry the motion while it runs
   scopeBtns.forEach(b => b.disabled = true);
   wrap.classList.add('running');
   const list = (scope === 'all') ? CHECKS.slice() : [scope];
@@ -562,6 +584,7 @@ async function run(){
   }
   wrap.classList.remove('running');
   go.disabled = false;
+  go.classList.add('ready');
   scopeBtns.forEach(b => b.disabled = false);
   busy = false;
 }
