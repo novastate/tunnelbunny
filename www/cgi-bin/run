@@ -10,9 +10,21 @@ prov_now() {
 case "$QUERY_STRING" in
     what=info)  hdr; prov_now; exit 0 ;;
     what=setprov*)
-        # The value arrives base64-encoded from the page - no URL decoding in shell.
+        # The value arrives base64-encoded from the page, so the shell never has to
+        # decode arbitrary percent-escapes. But base64 itself emits three characters
+        # that a query string cannot carry raw - = + / - and encodeURIComponent turns
+        # them into %3D %2B %2F. Those three, and only those three, are translated
+        # back here with sed (data through a pipe, never a shell word).
+        #
+        # Skipping this decoded the padding as if it were content, and the result
+        # depended on the value's length mod 3:
+        #   "31173 Services|Mullvad"     22 -> "==" -> garbage -> rejected outright
+        #   "Tefincom|PacketHub|NordVPN" 26 -> "="  -> saved as "...NordVPN7"
+        # The second is the dangerous one: a silently corrupted pattern is written,
+        # and a wrong pattern reports a leak that is not there.
         b=${QUERY_STRING#*&v=}
-        v=$(printf '%s' "$b" | base64 -d 2>/dev/null | tr -d '\r\n' | head -c 64)
+        v=$(printf '%s' "$b" | sed 's/%3[Dd]/=/g; s/%2[Bb]/+/g; s|%2[Ff]|/|g' \
+            | base64 -d 2>/dev/null | tr -d '\r\n' | head -c 64)
         # Whitelist. Deliberately NOT with `case`: a | inside the bracket expression
         # is taken as the case alternation separator BEFORE the bracket is parsed,
         # which silently disables the entire check - and | has to be allowed here,
