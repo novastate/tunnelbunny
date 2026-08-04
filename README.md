@@ -147,15 +147,23 @@ Update button, which would try to pull an image that only exists locally.
 
 ## The interface
 
-Three cards — VPN, DNS leak, Speed — each with its own state: *empty · measuring ·
-OK · failed*. **Run all** runs them one at a time so the cards fill in sequence
-instead of everything landing at once after 30 seconds.
+One dial with three arcs — **VPN, DNS, Speed**. The arcs are the status display, not
+decoration: dim before a run, pulsing during it, then green, red or amber. The centre
+goes from **GO** to the check currently running to the verdict — *TUNNELLED · LEAK ·
+SPLIT · NO VERDICT*. Only VPN and DNS can produce a verdict; a speed-only run says
+**MEASURED** rather than borrowing a word it did not measure.
 
-The rabbit is the logo and **runs while anything is being measured**. The measuring
-card gets a sweeping highlight and a pulsing LED. Speed **counts up** to its final
-value. DNS resolvers fade in one by one; any that falls outside your provider turns
-red. Raw `check` output stays available in a collapsible section — nothing is hidden,
-and if parsing fails the card shows the raw text instead.
+The scope picker above the dial decides what runs: **Everything**, or one check on its
+own. Picking one hides the other cells, so nothing runs that you did not ask for and no
+cell is left holding a result this run never touched. Switch back to Everything and the
+older results reappear **dimmed** — kept, but not passed off as fresh.
+
+The rabbit is the logo and **runs while anything is being measured**. Speed **counts
+up** to its final value and names the server it measured against — nothing is pinned,
+so Ookla picks the nearest server at every run, and two runs are only comparable when
+that line matches. DNS resolvers fade in one by one; any that falls outside your
+provider turns red. Raw `check` output stays available in a collapsible section —
+nothing is hidden, and if parsing fails the cell shows the raw text instead.
 
 The page **parses `check`'s text output** rather than having the script emit JSON.
 That keeps `check` useful as a standalone CLI tool.
